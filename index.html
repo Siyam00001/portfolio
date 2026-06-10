@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hire_siyam_haider.workflow — Siyam Haider, AI Automation Engineer</title>
+  <meta name="description" content="Siyam Haider's portfolio is a living automation workflow. Pan the canvas, execute the pipeline, talk to the AI agent node. Voice AI, RAG, n8n, Python." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Unbounded:wght@600;800&family=Caveat:wght@600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23131618'/><circle cx='30' cy='50' r='9' fill='%23ff6d3a'/><rect x='42' y='47' width='22' height='6' rx='3' fill='%233a4147'/><circle cx='72' cy='50' r='9' fill='%233ddc84'/></svg>" />
+</head>
+<body>
+
+  <!-- ===== boot overlay ===== -->
+  <div class="boot" id="boot">
+    <pre class="boot-text" id="bootText"></pre>
+  </div>
+
+  <!-- ===== top bar ===== -->
+  <header class="topbar">
+    <div class="tb-left">
+      <span class="tb-logo">S<i>/</i></span>
+      <div class="tb-name">
+        <span class="tb-file">hire_siyam_haider<em>.workflow</em></span>
+        <span class="tb-crumb">Siyam Haider — AI Automation Engineer</span>
+      </div>
+      <span class="tb-env">PRODUCTION</span>
+    </div>
+    <div class="tb-right">
+      <div class="tb-active">
+        <span class="tb-active-label">Active</span>
+        <span class="tb-switch on"><i></i></span>
+      </div>
+      <span class="tb-execs">runs <b id="execCount">0</b></span>
+      <button class="tb-btn tb-exec" id="btnExecute">▶ Execute workflow</button>
+      <button class="tb-btn" id="btnList">☰ Résumé view</button>
+    </div>
+  </header>
+
+  <!-- ===== canvas viewport ===== -->
+  <div class="viewport" id="viewport">
+    <div class="world" id="world">
+      <svg class="edges" id="edgeSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+      <!-- nodes injected by JS -->
+    </div>
+  </div>
+
+  <!-- ===== canvas hint ===== -->
+  <div class="hint" id="hint">
+    <b>This portfolio is a workflow.</b> drag to pan · scroll to zoom · drag nodes · click anything
+  </div>
+
+  <!-- ===== zoom controls ===== -->
+  <div class="zoomctl">
+    <button id="zoomIn" aria-label="Zoom in">+</button>
+    <button id="zoomFit" aria-label="Fit view">⊡</button>
+    <button id="zoomOut" aria-label="Zoom out">−</button>
+  </div>
+
+  <!-- ===== console log ===== -->
+  <div class="console" id="console" aria-live="polite"></div>
+
+  <!-- ===== floating AI button ===== -->
+  <button class="fab" id="fabAI">
+    <span class="fab-dot"></span> talk to Siyam
+  </button>
+
+  <!-- ===== status bar ===== -->
+  <footer class="statusbar">
+    <span class="sb-item ok">● connected</span>
+    <span class="sb-item" id="sbClock">--:--:--</span>
+    <span class="sb-item sb-grow" id="sbStatus">idle — waiting for trigger</span>
+    <span class="sb-item">© 2026 SIYAM HAIDER</span>
+  </footer>
+
+  <!-- ===== inspector panel (node details / chat) ===== -->
+  <aside class="inspector" id="inspector" aria-label="Node inspector">
+    <header class="ins-head">
+      <span class="ins-icon" id="insIcon"></span>
+      <div class="ins-title">
+        <b id="insTitle">Node</b>
+        <small id="insSub">node.type</small>
+      </div>
+      <button class="ins-close" id="insClose" aria-label="Close">✕</button>
+    </header>
+    <nav class="ins-tabs" id="insTabs">
+      <button class="ins-tab active" data-tab="params">Parameters</button>
+      <button class="ins-tab" data-tab="output">Output</button>
+    </nav>
+    <div class="ins-body">
+      <div class="ins-pane active" id="paneParams"></div>
+      <div class="ins-pane" id="paneOutput"><pre id="outJson"></pre></div>
+      <!-- chat pane for the AI agent node -->
+      <div class="ins-pane chat-pane" id="paneChat">
+        <div class="chat-log" id="chatLog">
+          <div class="msg bot">
+            Hey, I'm <b>Siyam's AI twin</b> — trained on his resume and wired into this
+            workflow. Ask me anything about my experience, projects, or whether I can
+            build what you need.
+          </div>
+          <div class="chat-suggest" id="chatSuggest">
+            <button data-q="What's your most impressive project?">→ most impressive project?</button>
+            <button data-q="What experience do you have with voice AI?">→ voice AI experience?</button>
+            <button data-q="Why should I hire you over other AI engineers?">→ why should I hire you?</button>
+          </div>
+        </div>
+        <form class="chat-input" id="chatForm">
+          <input type="text" id="chatText" placeholder="query the agent…" autocomplete="off" />
+          <button type="submit" aria-label="Send">↵</button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== résumé / list view ===== -->
+  <div class="listview" id="listview">
+    <div class="lv-inner">
+      <button class="lv-close" id="lvClose">✕ back to canvas</button>
+      <header class="lv-head">
+        <h1>SIYAM<br />HAIDER</h1>
+        <p class="lv-role">AI AUTOMATION ENGINEER — PUNJAB, PK</p>
+        <p class="lv-pitch">I architect AI agents, voice systems &amp; automation pipelines that run real businesses — not demos. Dynamic RAG, real-time voice AI, high-throughput data pipelines, all production-grade.</p>
+        <div class="lv-links">
+          <a href="mailto:Siyamhaider786@gmail.com">Siyamhaider786@gmail.com</a>
+          <a href="tel:+923479067969">+92 347 9067969</a>
+          <a href="https://linkedin.com/in/siyam-haider" target="_blank" rel="noopener">LinkedIn ↗</a>
+          <a href="https://github.com/Siyam00001" target="_blank" rel="noopener">GitHub ↗</a>
+        </div>
+      </header>
+      <div id="lvSections"><!-- injected --></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
