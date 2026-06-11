@@ -290,6 +290,7 @@ const world = $("#world");
 const svg = $("#edgeSvg");
 const viewport = $("#viewport");
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const coarse = window.matchMedia("(pointer: coarse)").matches;
 const nodeEls = {}, edgePaths = [];
 
 function renderWatermarks() {
@@ -391,11 +392,22 @@ function fitView() {
     maxX = Math.max(maxX, x + el.offsetWidth);
     maxY = Math.max(maxY, y + el.offsetHeight);
   }
-  const pad = 70;
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  const pad = vw < 760 ? 28 : 70;
   view.k = Math.min((vw - pad * 2) / (maxX - minX), (vh - pad * 2) / (maxY - minY), 1.1);
   view.x = (vw - (maxX - minX) * view.k) / 2 - minX * view.k;
   view.y = (vh - (maxY - minY) * view.k) / 2 - minY * view.k;
+  applyView();
+}
+
+/* phones: fitting the whole graph makes nodes unreadable —
+   open on the trigger node at a legible zoom instead */
+function focusStart() {
+  const el = nodeEls["visitor"];
+  const k = 0.6;
+  view.k = k;
+  view.x = viewport.clientWidth / 2 - (parseFloat(el.style.left) + el.offsetWidth / 2) * k;
+  view.y = viewport.clientHeight / 2 - (parseFloat(el.style.top) + el.offsetHeight / 2) * k;
   applyView();
 }
 
@@ -417,29 +429,67 @@ $("#zoomIn").addEventListener("click", () => zoomAt(viewport.clientWidth / 2, vi
 $("#zoomOut").addEventListener("click", () => zoomAt(viewport.clientWidth / 2, viewport.clientHeight / 2, 0.8));
 $("#zoomFit").addEventListener("click", fitView);
 
-/* unified pointer logic: pan canvas, drag nodes, click to inspect */
+/* unified pointer logic: pan canvas, drag nodes, pinch to zoom, tap to inspect */
 let drag = null;
+let pinch = null;
+const pointers = new Map();
 
 viewport.addEventListener("pointerdown", (e) => {
-  const nodeEl = e.target.closest(".node, .note");
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   viewport.setPointerCapture(e.pointerId);
+
+  if (pointers.size === 2) {
+    /* second finger lands: abandon pan/drag and start a pinch */
+    const [a, b] = [...pointers.values()];
+    pinch = {
+      d0: Math.hypot(b.x - a.x, b.y - a.y),
+      c0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      v0: { ...view },
+    };
+    drag = null;
+    viewport.classList.remove("panning");
+    return;
+  }
+  if (pointers.size > 2) return;
+
+  const nodeEl = e.target.closest(".node, .note");
+  const slop = e.pointerType === "touch" ? 9 : 4;
   if (nodeEl) {
     drag = {
       type: "node", el: nodeEl, id: nodeEl.dataset.id,
-      sx: e.clientX, sy: e.clientY,
+      sx: e.clientX, sy: e.clientY, slop,
       ox: parseFloat(nodeEl.style.left), oy: parseFloat(nodeEl.style.top),
       moved: false,
     };
   } else {
-    drag = { type: "pan", sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y, moved: false };
+    drag = { type: "pan", sx: e.clientX, sy: e.clientY, slop, ox: view.x, oy: view.y, moved: false };
     viewport.classList.add("panning");
   }
 });
 
 viewport.addEventListener("pointermove", (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pinch && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const d1 = Math.hypot(b.x - a.x, b.y - a.y);
+    if (!d1 || !pinch.d0) return;
+    const r = viewport.getBoundingClientRect();
+    const k = Math.min(1.8, Math.max(0.25, pinch.v0.k * (d1 / pinch.d0)));
+    /* keep the world point that was under the initial pinch center glued to the current center */
+    const wx = (pinch.c0.x - r.left - pinch.v0.x) / pinch.v0.k;
+    const wy = (pinch.c0.y - r.top - pinch.v0.y) / pinch.v0.k;
+    view.k = k;
+    view.x = (a.x + b.x) / 2 - r.left - wx * k;
+    view.y = (a.y + b.y) / 2 - r.top - wy * k;
+    applyView();
+    return;
+  }
+
   if (!drag) return;
   const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
-  if (Math.hypot(dx, dy) > 4) drag.moved = true;
+  if (Math.hypot(dx, dy) > drag.slop) drag.moved = true;
   if (!drag.moved) return;
   if (drag.type === "pan") {
     view.x = drag.ox + dx;
@@ -452,10 +502,12 @@ viewport.addEventListener("pointermove", (e) => {
   }
 });
 
-viewport.addEventListener("pointerup", (e) => {
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinch = null;
   viewport.classList.remove("panning");
   if (!drag) return;
-  if (!drag.moved) {
+  if (e.type === "pointerup" && !drag.moved) {
     if (drag.type === "node") {
       const data = NODES.find((n) => n.id === drag.id);
       if (data) openInspector(data);
@@ -465,7 +517,9 @@ viewport.addEventListener("pointerup", (e) => {
   }
   drag = null;
   hideHint();
-});
+}
+viewport.addEventListener("pointerup", endPointer);
+viewport.addEventListener("pointercancel", endPointer);
 
 /* ============================================================
    4. INSPECTOR
@@ -489,7 +543,8 @@ function openInspector(n) {
   if (n.chat) {
     insTabs.classList.add("hidden");
     setPane("chat");
-    setTimeout(() => $("#chatText").focus(), 450);
+    /* no autofocus on touch — popping the keyboard immediately is jarring */
+    if (!coarse) setTimeout(() => $("#chatText").focus(), 450);
   } else {
     insTabs.classList.remove("hidden");
     panes.params.innerHTML = n.params;
@@ -523,6 +578,14 @@ insTabs.addEventListener("click", (e) => {
 });
 
 $("#insClose").addEventListener("click", closeInspector);
+
+/* keep the chat input above the on-screen keyboard (iOS Safari overlays it) */
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => {
+    const kb = Math.max(0, window.innerHeight - window.visualViewport.height);
+    inspector.style.bottom = kb > 4 ? `${kb}px` : "";
+  });
+}
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeInspector();
@@ -623,7 +686,7 @@ async function execute() {
   running = true;
   const btn = $("#btnExecute");
   btn.disabled = true;
-  btn.textContent = "⟳ executing…";
+  btn.innerHTML = `⟳ <span class="tb-label">executing…</span>`;
   sbStatus("executing workflow…");
   log("execution started — trigger: manual", "run");
 
@@ -647,7 +710,7 @@ async function execute() {
   log(`execution #${runs.toLocaleString()} finished — 0 errors`, "ok");
   sbStatus("run complete — all nodes green. your move: node:hire_siyam");
   btn.disabled = false;
-  btn.textContent = "▶ Execute workflow";
+  btn.innerHTML = `▶ <span class="tb-label">Execute workflow</span>`;
   running = false;
 }
 
@@ -698,6 +761,10 @@ function hideHint() {
 }
 setTimeout(hideHint, 9000);
 
+if (coarse) {
+  $("#hint").innerHTML = "<b>This portfolio is a workflow.</b> drag to pan · pinch to zoom · tap any node";
+}
+
 /* ============================================================
    7. BOOT SEQUENCE
    ============================================================ */
@@ -732,8 +799,17 @@ setTimeout(hideHint, 9000);
 renderWatermarks();
 renderNodes();
 renderEdges();
-fitView();
-window.addEventListener("resize", () => { redrawEdges(); fitView(); });
+const initialView = () => (window.innerWidth < 760 ? focusStart() : fitView());
+initialView();
+
+/* refit only on real width changes — mobile keyboards and collapsing URL bars
+   fire resize too, and resetting the view mid-interaction is disorienting */
+let lastW = window.innerWidth;
+window.addEventListener("resize", () => {
+  if (Math.abs(window.innerWidth - lastW) < 80) return;
+  lastW = window.innerWidth;
+  initialView();
+});
 
 /* small screens: open the résumé view by default (canvas still available) */
 if (window.innerWidth < 760) {

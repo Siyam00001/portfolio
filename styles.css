@@ -23,6 +23,8 @@
   --mono: "Geist Mono", monospace;
   --display: "Unbounded", sans-serif;
   --hand: "Caveat", cursive;
+  /* iOS home-indicator / notch safe area (needs viewport-fit=cover) */
+  --sab: env(safe-area-inset-bottom, 0px);
   /* node category accents */
   --c-trigger: #3ddc84;
   --c-switch: #ffc24b;
@@ -47,7 +49,7 @@ body {
 
 ::selection { background: var(--orange); color: #0e1112; }
 
-button { font-family: var(--sans); cursor: pointer; }
+button { font-family: var(--sans); cursor: pointer; touch-action: manipulation; }
 
 /* ============ boot overlay ============ */
 .boot {
@@ -143,10 +145,17 @@ button { font-family: var(--sans); cursor: pointer; }
   .tb-crumb, .tb-env, .tb-active, .tb-execs { display: none; }
   .tb-btn { padding: 0.45rem 0.6rem; font-size: 0.66rem; }
 }
+@media (max-width: 640px) {
+  .topbar { padding: 0 10px; }
+  .tb-left, .tb-right { gap: 8px; }
+  .tb-label { display: none; }
+  .tb-btn { padding: 0.55rem 0.8rem; font-size: 0.9rem; line-height: 1; }
+  .tb-file { font-size: 0.74rem; }
+}
 
 /* ============ canvas ============ */
 .viewport {
-  position: fixed; inset: 54px 0 30px 0;
+  position: fixed; inset: 54px 0 calc(30px + var(--sab)) 0;
   overflow: hidden;
   cursor: grab;
   touch-action: none;
@@ -343,7 +352,7 @@ button { font-family: var(--sans); cursor: pointer; }
 /* ============ hint ============ */
 .hint {
   position: fixed;
-  bottom: 44px; left: 50%;
+  bottom: calc(44px + var(--sab)); left: 50%;
   transform: translateX(-50%);
   z-index: 600;
   background: rgba(21, 25, 27, 0.92);
@@ -362,7 +371,7 @@ button { font-family: var(--sans); cursor: pointer; }
 /* ============ zoom controls ============ */
 .zoomctl {
   position: fixed;
-  right: 14px; bottom: 44px;
+  right: 14px; bottom: calc(44px + var(--sab));
   z-index: 600;
   display: flex; flex-direction: column;
   border: 1px solid var(--line);
@@ -385,7 +394,7 @@ button { font-family: var(--sans); cursor: pointer; }
 .console {
   font-family: var(--mono);
   position: fixed;
-  left: 14px; bottom: 44px;
+  left: 14px; bottom: calc(44px + var(--sab));
   z-index: 600;
   width: min(420px, calc(100vw - 90px));
   pointer-events: none;
@@ -412,7 +421,7 @@ button { font-family: var(--sans); cursor: pointer; }
 /* ============ FAB ============ */
 .fab {
   position: fixed;
-  right: 14px; bottom: 160px;
+  right: 14px; bottom: calc(160px + var(--sab));
   z-index: 600;
   display: flex; align-items: center; gap: 8px;
   background: #221a2b;
@@ -442,10 +451,10 @@ button { font-family: var(--sans); cursor: pointer; }
 .statusbar {
   font-family: var(--mono);
   position: fixed; bottom: 0; left: 0; right: 0;
-  height: 30px;
+  height: calc(30px + var(--sab));
   z-index: 900;
   display: flex; align-items: center; gap: 18px;
-  padding: 0 14px;
+  padding: 0 14px var(--sab);
   background: var(--panel);
   border-top: 1px solid var(--line);
   font-size: 0.66rem;
@@ -461,7 +470,7 @@ button { font-family: var(--sans); cursor: pointer; }
 /* ============ inspector ============ */
 .inspector {
   position: fixed;
-  top: 54px; right: 0; bottom: 30px;
+  top: 54px; right: 0; bottom: calc(30px + var(--sab));
   width: min(420px, 100vw);
   z-index: 800;
   background: var(--panel);
@@ -768,6 +777,26 @@ button { font-family: var(--sans); cursor: pointer; }
 .lv-card a.ins-link:hover { text-decoration: none; }
 .lv-card a.ins-link.ghost { color: var(--fg); }
 .lv-card .tagrow span { --accent: var(--orange); }
+
+/* ============ mobile ============ */
+@media (max-width: 760px) {
+  .hint {
+    /* leave room for the zoom controls on the right */
+    max-width: calc(100vw - 140px);
+    width: max-content;
+    white-space: normal;
+    text-align: center;
+  }
+  .zoomctl button { width: 42px; height: 40px; }
+  .fab { bottom: calc(182px + var(--sab)); padding: 0.6rem 1rem; }
+  .ins-pane { padding: 14px; }
+  .ins-close { width: 36px; height: 36px; }
+  .msg { max-width: 95%; }
+  /* 16px stops iOS Safari from auto-zooming the page when the input is focused */
+  .chat-input input { font-size: 16px; }
+  .lv-inner { padding: 60px 18px 70px; }
+  .lv-card { padding: 16px; }
+}
 
 /* ============ reduced motion ============ */
 @media (prefers-reduced-motion: reduce) {
